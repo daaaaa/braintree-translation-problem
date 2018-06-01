@@ -1,0 +1,66 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="fetch.js"></script>
+  <script src="https://js.braintreegateway.com/web/dropin/1.10.0/js/dropin.min.js"></script>
+  <style>
+  </style>
+</head>
+
+<body>
+
+<div id="dropin-container"></div>
+<button id="submit-button">Paga</button>
+
+<script>
+  var button = document.querySelector('#submit-button')
+
+  fetch('/client_token')
+    .then(res => res.json())
+    .then((responseClientToken) => {
+      if (responseClientToken.statusCode === 500) {
+        return alert(responseClientToken.message)
+      }
+      braintree.dropin.create({
+        authorization: responseClientToken.clientToken,
+        container: '#dropin-container',
+        paypal: {
+          flow: 'vault',
+        },
+        locale: 'it_IT',
+      }, function(createErr, instance) {
+        button.addEventListener('click', function() {
+          instance.requestPaymentMethod(function(requestPaymentMethodErr, payload) {
+
+            if (requestPaymentMethodErr) {
+              if (requestPaymentMethodErr._braintreeWebError.code === 'HOSTED_FIELDS_TOKENIZATION_FAIL_ON_DUPLICATE') {
+                alert('Duplicated card')
+                return
+              }
+            }
+
+            fetch('/checkout', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                nonce: payload.nonce,
+              })
+            })
+              .then(res => res.text())
+              .then(() => {
+                alert('Payment done')
+              })
+
+          })
+        })
+      })
+
+    })
+
+
+</script>
+</body>
+</html>
